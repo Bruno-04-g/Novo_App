@@ -12,7 +12,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Estilização CSS para visual acadêmico e técnico
 st.markdown(
     """
     <style>
@@ -31,8 +30,6 @@ st.markdown(
         margin-bottom: 1.5rem;
         font-weight: 400;
     }
-    
-    /* Cartões de Métricas */
     .metric-card {
         background-color: #ffffff;
         border: 1px solid #e9ecef;
@@ -59,8 +56,6 @@ st.markdown(
         color: #4b5563;
         font-weight: 400;
     }
-
-    /* Formatação de Abas */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
     }
@@ -94,7 +89,7 @@ st.markdown(
 st.sidebar.markdown("### Parâmetros de Operação")
 
 y_lido = st.sidebar.number_input(
-    "Sinal de Saída Lido y (mV)", value=1220.0, step=5.0, format="%.2f"
+    "Sinal de Saída Lido y (mV)", value=1220.0, step=10.0, format="%.2f"
 )
 T_medida = st.sidebar.number_input(
     "Temp. de Operação Top (°C)", value=28.0, step=0.5, format="%.1f"
@@ -133,6 +128,11 @@ E_int = (Ki * delta_T_op) / K0
 E_mod = (Km * delta_T_op * P_real) / K0
 E_total = P_indicado - P_real
 
+# Curva interpolada para a temperatura operacional atual
+y_op_curva = (
+    y20 + (Ki * delta_T_op) + (Km * delta_T_op * cargas)
+)  # Curva estimada no Top
+
 # -----------------------------------------------------------------------------
 # Módulo 3: Apresentação dos Resultados
 # -----------------------------------------------------------------------------
@@ -141,7 +141,6 @@ tab_dash, tab_dados, tab_arch = st.tabs(
 )
 
 with tab_dash:
-  # Indicadores Chave
   c1, c2, c3, c4 = st.columns(4)
 
   with c1:
@@ -221,16 +220,17 @@ with tab_dash:
   with col_right:
     st.subheader("Curvas Características de Resposta Estática")
 
-    # Gráfico Estilizado
     fig, ax = plt.subplots(figsize=(6, 4), dpi=120)
 
+    # Curvas de ensaio originais
     ax.plot(
         cargas,
         y20,
         marker="o",
         color="#1e3d59",
-        linewidth=1.8,
-        markersize=5,
+        linewidth=1.5,
+        markersize=4,
+        alpha=0.6,
         label=f"Ensaio Nominal ({T_nom:.0f} °C)",
     )
     ax.plot(
@@ -239,17 +239,29 @@ with tab_dash:
         marker="s",
         color="#ff6e40",
         linestyle="--",
-        linewidth=1.8,
-        markersize=5,
+        linewidth=1.5,
+        markersize=4,
+        alpha=0.6,
         label=f"Ensaio Térmico ({T_calib:.0f} °C)",
     )
 
-    ax.axhline(
-        y=y_lido,
+    # Curva Dinâmica na Temp. Operacional
+    ax.plot(
+        cargas,
+        y_op_curva,
+        color="#2b9348",
+        linewidth=2.0,
+        label=f"Estimada em Top ({T_medida:.1f} °C)",
+    )
+
+    # Ponto Exato de Operação
+    ax.plot(
+        P_real,
+        y_lido,
+        marker="*",
+        markersize=12,
         color="#d9534f",
-        linestyle=":",
-        linewidth=1.5,
-        label=f"Leitura Operacional ({y_lido} mV)",
+        label=f"Ponto Lido ({P_real:.1f} kgf, {y_lido:.0f} mV)",
     )
 
     ax.set_xlabel(
@@ -274,17 +286,11 @@ with tab_dash:
 
 with tab_dados:
   st.subheader("Matriz de Calibração do Ensaio de Célula de Carga")
-  st.markdown(
-      "Valores medidos durante o ensaio de calibração em duas condições de"
-      " temperatura controlada:"
-  )
-
   df_dados = pd.DataFrame({
       "Carga Aplicada (kgf)": cargas,
       "Saída Térmica a 20°C (mV)": y20,
       "Saída Térmica a 35°C (mV)": y35,
   })
-
   st.dataframe(
       df_dados.style.format({
           "Carga Aplicada (kgf)": "{:.0f}",
@@ -297,11 +303,6 @@ with tab_dados:
 
 with tab_arch:
   st.subheader("Arquitetura e Fluxo de Dados do Sistema Computacional")
-  st.markdown(
-      "Estrutura modular desenvolvida para aquisição, processamento e exibição"
-      " gráfica:"
-  )
-
   st.markdown("""
     ```text
     ┌────────────────────────────────────────────────────────────────────────┐
